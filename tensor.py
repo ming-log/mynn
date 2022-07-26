@@ -63,9 +63,9 @@ class Tensor:
 
     def __repr__(self):
         if self.name:
-            return f"tensor(array(\n{self.data}), requires_grad={self.requires_grad}, name={self.name})"
+            return f"tensor(array({self.data}), requires_grad={self.requires_grad}, name={self.name})"
         else:
-            return f"tensor(array(\n{self.data}), requires_grad={self.requires_grad})"
+            return f"tensor(array({self.data}), requires_grad={self.requires_grad})"
 
 
     def __mul__(self, other: Union['Tensor', float, int]) -> 'Tensor':
@@ -190,6 +190,21 @@ class Tensor:
             depends_on = [Dependency(self, grad_fn2)]
         return Tensor(other.data - self.data, self.requires_grad, depends_on=depends_on)
 
+    def __truediv__(self, other):
+        """
+        除法 (左除)
+        y = x / other
+        """
+        pass
+
+
+    def __rtruediv__(self, other):
+        """
+        除法 (右除)
+        y = other / x
+        """
+        pass
+
 
     def __pow__(self, power, modulo=None) -> 'Tensor':
         """
@@ -199,6 +214,48 @@ class Tensor:
             return grad * power * self.data ** (power - 1)
         return Tensor(self.data ** power, self.requires_grad, depends_on=[Dependency(self, grad_fn)])
 
+
+    def __eq__(self, other):
+        """
+        判断Tensor值是否等于  x == other
+        """
+        other = ensure_Tensor(other)
+        return Tensor(self.data == other.data)
+
+    def __lt__(self, other):
+        """
+        小于 x < other
+        """
+        other = ensure_Tensor(other)
+        return Tensor(self.data < other.data)
+
+    def __le__(self, other):
+        """
+        小于等于 x <= other
+        """
+        other = ensure_Tensor(other)
+        return Tensor(self.data <= other.data)
+
+    def __ne__(self, other):
+        """
+        不等于 x != other
+        """
+        other = ensure_Tensor(other)
+        return Tensor(self.data != other.data)
+
+    def __gt__(self, other):
+        """
+        大于 x > other
+        """
+        other = ensure_Tensor(other)
+        return Tensor(self.data > other.data)
+
+    def __ge__(self, other):
+        """
+        大于等于 x >= other
+        """
+        other = ensure_Tensor(other)
+        return Tensor(self.data >= other.data)
 
     def sum(self) -> 'Tensor':
         return tensor_sum(self)

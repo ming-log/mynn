@@ -5,12 +5,10 @@
 @File:test.py
 @IDE:PyCharm
 """
-import torch
+from tensor import Tensor
 
-a = torch.tensor([5.0, 2.0, 3.0], requires_grad=True)
-b = a * a
-c = b * b
-d = b * b
-y = 2*c + d
-y.backward(torch.ones_like(c))
-print(a.grad)
+a = Tensor([1, 2, 3])
+b = Tensor([1, 2, 3])
+c = Tensor([5, 3, 1])
+
+print(a<3)
