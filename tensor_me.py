@@ -152,7 +152,7 @@ class Tensor:
 
     def __sub__(self, other: Union['Tensor', float, int]) -> 'Tensor':
         """
-        加法运算
+        减法运算（左减）
         y = x - other
         """
         def grad_fn1(grad):
@@ -172,7 +172,7 @@ class Tensor:
 
     def __rsub__(self, other: Union['Tensor', float, int]) -> 'Tensor':
         """
-        加法运算
+        减法运算（右减）
         y = other - x
         """
 
