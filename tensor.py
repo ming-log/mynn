@@ -12,8 +12,11 @@ from typing import List, NamedTuple, Optional, Union, Callable
 # Callable: Callable[[int], str]是一个函数，接受一个int参数，返回一个str
 
 import numpy as np
+import nn
 
 Arrayable = Union[float, List, np.ndarray]
+
+
 
 # 允许的类型
 class Dependency(NamedTuple):
@@ -28,13 +31,15 @@ class Tensor:
                  data:Arrayable,
                  requires_grad:bool=False,
                  depends_on: List[Dependency]=[],
-                 name=None
+                 name=None,
+                 dtype=nn.float32
                  ):
 
-        self.data = ensure_ndarray(data)
+        self.data = ensure_ndarray(data, dtype)
         self.requires_grad = requires_grad
         self.depends_on = depends_on
         self.name = name
+        self.dtype = dtype
 
         self.grad: Tensor = None
         self.shape = self.data.shape
@@ -68,6 +73,99 @@ class Tensor:
             return f"tensor(array({self.data}), requires_grad={self.requires_grad})"
 
 
+    def __add__(self, other: Union['Tensor', float, int]) -> 'Tensor':
+        """
+        加法运算
+        y = x + other
+        """
+        def grad_fn(grad):
+            return grad
+
+        other = ensure_Tensor(other)
+
+        if self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(self, grad_fn), Dependency(other, grad_fn)]
+        elif not self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(other, grad_fn)]
+        elif self.requires_grad and not other.requires_grad:
+            depends_on = [Dependency(self, grad_fn)]
+        else:
+            depends_on = []
+        return Tensor(self.data + other.data, self.requires_grad or other.requires_grad, depends_on=depends_on)
+
+
+    def __radd__(self, other: Union['Tensor', float, int]) -> 'Tensor':
+        """
+        加法运算
+        y = other + x
+        """
+        def grad_fn(grad):
+            return grad
+
+        other = ensure_Tensor(other)
+
+
+        if self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(self, grad_fn), Dependency(other, grad_fn)]
+        elif not self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(other, grad_fn)]
+        elif self.requires_grad and not other.requires_grad:
+            depends_on = [Dependency(self, grad_fn)]
+        else:
+            depends_on = []
+        return Tensor(other.data + self.data, self.requires_grad or other.requires_grad, depends_on=depends_on)
+
+    def __sub__(self, other: Union['Tensor', float, int]) -> 'Tensor':
+        """
+        减法运算（左减）
+        y = x - other
+        """
+        def grad_fn1(grad):
+            return grad
+
+        def grad_fn2(grad):
+            return grad * (-1)
+
+        other = ensure_Tensor(other)
+
+        if self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(self, grad_fn1), Dependency(other, grad_fn2)]
+        elif not self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(other, grad_fn2)]
+        elif self.requires_grad and not other.requires_grad:
+            depends_on = [Dependency(self, grad_fn1)]
+        else:
+            depends_on = []
+        return Tensor(self.data - other.data, self.requires_grad or other.requires_grad, depends_on=depends_on)
+
+
+
+    def __rsub__(self, other: Union['Tensor', float, int]) -> 'Tensor':
+        """
+        减法运算（右减）
+        y = other - x
+        """
+
+        def grad_fn1(grad):
+            return grad
+
+        def grad_fn2(grad):
+            return grad * (-1)
+
+        other = ensure_Tensor(other)
+
+        # 分情况讨论，当计算的结果不可计算梯度时，如何处理
+        if self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(self, grad_fn2), Dependency(other, grad_fn1)]
+        elif not self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(other, grad_fn1)]
+        elif self.requires_grad and not other.requires_grad:
+            depends_on = [Dependency(self, grad_fn2)]
+        else:
+            depends_on = []
+        return Tensor(other.data - self.data, self.requires_grad or other.requires_grad, depends_on=depends_on)
+
+
     def __mul__(self, other: Union['Tensor', float, int]) -> 'Tensor':
         """
         左乘法
@@ -85,12 +183,15 @@ class Tensor:
 
         other = ensure_Tensor(other)
 
-        if other.requires_grad:
+        if self.requires_grad and other.requires_grad:
             depends_on = [Dependency(self, grad_fn1), Dependency(other, grad_fn2)]
-        else:
+        elif not self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(other, grad_fn2)]
+        elif self.requires_grad and not other.requires_grad:
             depends_on = [Dependency(self, grad_fn1)]
-        return Tensor(self.data * other.data, self.requires_grad, depends_on=depends_on)
-
+        else:
+            depends_on = []
+        return Tensor(self.data * other.data, other.requires_grad or self.requires_grad, depends_on=depends_on)
 
     def __rmul__(self, other: Union['Tensor', float, int]) -> 'Tensor':
         """
@@ -98,10 +199,6 @@ class Tensor:
         y = other * x
         """
         def grad_fn1(grad):
-            """
-            grad = dy/dh_{l}
-            return dy/dh_{l} * dh_{l} / dh_{l-1}
-            """
             return grad * other.data
 
         def grad_fn2(grad):
@@ -111,102 +208,66 @@ class Tensor:
 
         if other.requires_grad:
             depends_on = [Dependency(self, grad_fn1), Dependency(other, grad_fn2)]
-        else:
+        elif not self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(other, grad_fn2)]
+        elif self.requires_grad and not other.requires_grad:
             depends_on = [Dependency(self, grad_fn1)]
-
-        return Tensor(self.data * other.data, self.requires_grad, depends_on = depends_on)
-
-
-    def __add__(self, other: Union['Tensor', float, int]) -> 'Tensor':
-        """
-        加法运算
-        y = x + other
-        """
-        def grad_fn(grad):
-            return grad
-
-        other = ensure_Tensor(other)
-
-        if other.requires_grad:
-            depends_on = [Dependency(self, grad_fn), Dependency(other, grad_fn)]
         else:
-            depends_on = [Dependency(self, grad_fn)]
-        return Tensor(self.data + other.data, self.requires_grad, depends_on=depends_on)
+            depends_on = []
+        return Tensor(self.data * other.data, self.requires_grad or other.requires_grad, depends_on = depends_on)
 
 
-    def __radd__(self, other: Union['Tensor', float, int]) -> 'Tensor':
-        """
-        加法运算
-        y = other + x
-        """
-        def grad_fn(grad):
-            return grad
-
-        other = ensure_Tensor(other)
-
-        if other.requires_grad:
-            depends_on = [Dependency(self, grad_fn), Dependency(other, grad_fn)]
-        else:
-            depends_on = [Dependency(self, grad_fn)]
-        return Tensor(self.data + other.data, self.requires_grad, depends_on=depends_on)
-
-    def __sub__(self, other: Union['Tensor', float, int]) -> 'Tensor':
-        """
-        减法运算（左减）
-        y = x - other
-        """
-        def grad_fn1(grad):
-            return grad
-
-        def grad_fn2(grad):
-            return grad * (-1)
-
-        other = ensure_Tensor(other)
-
-        if other.requires_grad:
-            depends_on = [Dependency(self, grad_fn1), Dependency(other, grad_fn2)]
-        else:
-            depends_on = [Dependency(self, grad_fn1)]
-        return Tensor(self.data - other.data, self.requires_grad, depends_on=depends_on)
-
-
-    def __rsub__(self, other: Union['Tensor', float, int]) -> 'Tensor':
-        """
-        减法运算（右减）
-        y = other - x
-        """
-
-        def grad_fn1(grad):
-            return grad
-
-        def grad_fn2(grad):
-            return grad * (-1)
-
-        other = ensure_Tensor(other)
-
-        if other.requires_grad:
-            depends_on = [Dependency(self, grad_fn2), Dependency(other, grad_fn1)]
-        else:
-            depends_on = [Dependency(self, grad_fn2)]
-        return Tensor(other.data - self.data, self.requires_grad, depends_on=depends_on)
-
-    def __truediv__(self, other):
+    def __truediv__(self, other: Union['Tensor', float, int]) -> 'Tensor':
         """
         除法 (左除)
         y = x / other
         """
-        pass
+        def grad_fn1(grad):
+            return grad * 1/other.data
+
+        def grad_fn2(grad):
+            return grad * self.data * (-1) * other.data ** (-2)
+
+        other = ensure_Tensor(other)
+
+        if self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(self, grad_fn1), Dependency(other, grad_fn2)]
+        elif not self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(other, grad_fn2)]
+        elif self.requires_grad and not other.requires_grad:
+            depends_on = [Dependency(self, grad_fn1)]
+        else:
+            depends_on = []
+        return Tensor(self.data / other.data, other.requires_grad or self.requires_grad, depends_on=depends_on)
 
 
-    def __rtruediv__(self, other):
+
+    def __rtruediv__(self, other: Union['Tensor', float, int]) -> 'Tensor':
         """
         除法 (右除)
         y = other / x
         """
-        pass
+
+        def grad_fn1(grad):
+            return grad * 1 / self.data
+
+        def grad_fn2(grad):
+            return grad * other.data * (-1) * self.data ** (-2)
+
+        other = ensure_Tensor(other)
+
+        if self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(self, grad_fn2), Dependency(other, grad_fn1)]
+        elif not self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(other, grad_fn1)]
+        elif self.requires_grad and not other.requires_grad:
+            depends_on = [Dependency(self, grad_fn2)]
+        else:
+            depends_on = []
+        return Tensor(self.data / other.data, other.requires_grad or self.requires_grad, depends_on=depends_on)
 
 
-    def __pow__(self, power, modulo=None) -> 'Tensor':
+    def __pow__(self, power: Union[int, float, 'Tensor'], modulo=None) -> 'Tensor':
         """
         power: 幂值
         """
@@ -215,42 +276,42 @@ class Tensor:
         return Tensor(self.data ** power, self.requires_grad, depends_on=[Dependency(self, grad_fn)])
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: 'Tensor') -> 'Tensor':
         """
         判断Tensor值是否等于  x == other
         """
         other = ensure_Tensor(other)
         return Tensor(self.data == other.data)
 
-    def __lt__(self, other):
+    def __lt__(self, other: 'Tensor') -> 'Tensor':
         """
         小于 x < other
         """
         other = ensure_Tensor(other)
         return Tensor(self.data < other.data)
 
-    def __le__(self, other):
+    def __le__(self, other: 'Tensor') -> 'Tensor':
         """
         小于等于 x <= other
         """
         other = ensure_Tensor(other)
         return Tensor(self.data <= other.data)
 
-    def __ne__(self, other):
+    def __ne__(self, other: 'Tensor') -> 'Tensor':
         """
         不等于 x != other
         """
         other = ensure_Tensor(other)
         return Tensor(self.data != other.data)
 
-    def __gt__(self, other):
+    def __gt__(self, other: 'Tensor') -> 'Tensor':
         """
         大于 x > other
         """
         other = ensure_Tensor(other)
         return Tensor(self.data > other.data)
 
-    def __ge__(self, other):
+    def __ge__(self, other: 'Tensor') -> 'Tensor':
         """
         大于等于 x >= other
         """
@@ -260,23 +321,35 @@ class Tensor:
     def sum(self) -> 'Tensor':
         return tensor_sum(self)
 
-#
+    def mean(self) -> 'Tensor':
+        return tensor_mean(self)
+
+# 求和函数
 def tensor_sum(t: Tensor) -> Tensor:
-    data = t.data.sum()
-    requires_grad = t.requires_grad
-    depends_on: List[Dependency] = []
-    if requires_grad:
+    if t.requires_grad:
         def grad_fn(grad:np.ndarray) -> np.ndarray:
             return grad*np.ones_like(t.data)
-        depends_on.append(Dependency(t, grad_fn))
-        print('-'*100)
-    return Tensor(data, requires_grad, depends_on)
+        depends_on = [Dependency(t, grad_fn)]
+    else:
+        depends_on = []
+    return Tensor(t.data.sum(), t.requires_grad, depends_on=depends_on)
+
+# 均值函数
+def tensor_mean(t: Tensor) -> Tensor:
+    if t.requires_grad:
+        def grad_fn(grad:np.ndarray) -> np.ndarray:
+            return grad*np.ones_like(t.data) / np.size(t.data)
+        depends_on = [Dependency(t, grad_fn)]
+    else:
+        depends_on = []
+    return Tensor(t.data.mean(), t.requires_grad, depends_on=depends_on)
+
 
 # 确保输入数据为ndarray，如果不是ndarray则需要将其进行转化
-def ensure_ndarray(arrayable: Arrayable) -> np.ndarray:
+def ensure_ndarray(arrayable: Arrayable, dtype) -> np.ndarray:
     if isinstance(arrayable, np.ndarray):
         return arrayable
-    return np.array(arrayable)
+    return np.array(arrayable, dtype=dtype)
 
 # 确保输入数据为Tensor，如果不是Tensor则需要将其进行转化
 def ensure_Tensor(other: Union[Tensor, int, float, np.ndarray]) -> Tensor:
@@ -290,9 +363,18 @@ if __name__ == '__main__':
     # def loss(a, b):
     #     return a**3 + b**2 + 2*a
     # y = loss(a, b)
-    y = -2 * a ** 2 - a
+    # y = -2 * a ** 2 - a
+    # y.backward()
+    # y.zero_grad()
+    # print(a.grad)
+    # print(y)
+    # print(y.sum())
+
+    a = Tensor([1, 2, 3])
+    b = Tensor([1, 2, 3])
+    c = Tensor([5, 3, 1], requires_grad=True)
+
+    y = a * c
     y.backward()
-    y.zero_grad()
-    print(a.grad)
-    print(y)
-    print(y.sum())
+
+    print(c.grad)
