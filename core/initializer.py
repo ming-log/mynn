@@ -12,6 +12,9 @@ class Init:
     def __init__(self):
         self.outputs = None
 
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError
+
 
 class XavierUniformInit(Init):
     def __init__(self):

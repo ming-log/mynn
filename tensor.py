@@ -56,10 +56,7 @@ class Tensor:
     def backward(self, grad:'Tensor'=None) -> None:
         assert self.requires_grad, "called backward on non-requires"
         if grad is None:
-            if self.shape == ():
-                grad = Tensor(1.0)
-            else:
-                grad = Tensor(np.ones_like(self.grad.data))
+            grad = Tensor(1.0)
         self.grad.data += grad.data  # 梯度累加
         for dependency in self.depends_on:
             backward_grad = dependency.grad_fn(grad.data)
@@ -266,6 +263,59 @@ class Tensor:
             depends_on = []
         return Tensor(self.data / other.data, other.requires_grad or self.requires_grad, depends_on=depends_on)
 
+    def __matmul__(self, other: 'Tensor') -> 'Tensor':
+        """
+        矩阵乘法（左乘）
+        y = x @ other
+        """
+        def grad_fn1(grad):
+            # print('1111' + '-'*20)
+            # print(grad)
+            # print(np.ones_like(self.data.T) * np.expand_dims(other.data.sum(axis=-1), -1))
+            return grad * np.ones_like(self.data.T) * np.expand_dims(other.data.sum(axis=-1), -1)
+
+        def grad_fn2(grad):
+            # print('2222' + '-'*20)
+            # print(grad)
+            # print(np.ones_like(other.data) * np.expand_dims(self.T.data.sum(axis=-1), -1))
+            return grad * np.ones_like(other.data) * np.expand_dims(self.T.data.sum(axis=-1), -1)
+
+        other = ensure_Tensor(other)
+
+        if self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(self.T, grad_fn2), Dependency(other, grad_fn1)]
+        elif not self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(other, grad_fn1)]
+        elif self.requires_grad and not other.requires_grad:
+            depends_on = [Dependency(self.T, grad_fn2)]
+        else:
+            depends_on = []
+        tensor = self.data @ other.data
+        return Tensor(tensor.T, other.requires_grad or self.requires_grad, depends_on=depends_on)
+
+    def __rmatmul__(self, other: 'Tensor') -> 'Tensor':
+        """
+        矩阵乘法（右乘）
+        y = other @ x
+        """
+        def grad_fn1(grad):
+            return grad * np.ones_like(self.data) * np.expand_dims(other.T.data.sum(axis=1), -1)
+
+        def grad_fn2(grad):
+            return grad * np.ones_like(other.T.data) * np.expand_dims(self.data.sum(axis=0), -1)
+
+        other = ensure_Tensor(other)
+
+        if self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(self, grad_fn2), Dependency(other.T, grad_fn1)]
+        elif not self.requires_grad and other.requires_grad:
+            depends_on = [Dependency(other.T, grad_fn1)]
+        elif self.requires_grad and not other.requires_grad:
+            depends_on = [Dependency(self, grad_fn2)]
+        else:
+            depends_on = []
+        tensor = self.data @ other.data
+        return Tensor(tensor.T, other.requires_grad or self.requires_grad, depends_on=depends_on)
 
     def __pow__(self, power: Union[int, float, 'Tensor'], modulo=None) -> 'Tensor':
         """
@@ -318,11 +368,22 @@ class Tensor:
         other = ensure_Tensor(other)
         return Tensor(self.data >= other.data)
 
+    # 矩阵转置
+    @property
+    def T(self) -> 'Tensor':
+        return T(self)
+
+    # 求和函数
     def sum(self) -> 'Tensor':
         return tensor_sum(self)
 
+    # 均值函数
     def mean(self) -> 'Tensor':
         return tensor_mean(self)
+
+    # relu激活函数
+    def relu(self) -> 'Tensor':
+        return relu(self)
 
 # 求和函数
 def tensor_sum(t: Tensor) -> Tensor:
@@ -343,6 +404,25 @@ def tensor_mean(t: Tensor) -> Tensor:
     else:
         depends_on = []
     return Tensor(t.data.mean(), t.requires_grad, depends_on=depends_on)
+
+# relu函数
+def relu(t: Tensor) -> Tensor:
+    if t.requires_grad:
+        def grad_fn(grad:np.ndarray) -> np.ndarray:
+            return grad*(t.data > 0)
+        depends_on = [Dependency(t, grad_fn)]
+    else:
+        depends_on = []
+    return Tensor(nn.maximum(t.data, 0.0), t.requires_grad, depends_on=depends_on)
+
+def T(t: Tensor) -> Tensor:
+    if t.requires_grad:
+        def grad_fn(grad:np.ndarray) -> np.ndarray:
+            return grad.T
+        depends_on = [Dependency(t, grad_fn)]
+    else:
+        depends_on = []
+    return Tensor(t.data.T, t.requires_grad, depends_on=depends_on)
 
 
 # 确保输入数据为ndarray，如果不是ndarray则需要将其进行转化

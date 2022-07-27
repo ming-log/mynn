@@ -5,8 +5,6 @@
 @File:net.py
 @IDE:PyCharm
 """
-
-
 # net.py
 class Net(object):
     def __init__(self, layers):

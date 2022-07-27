@@ -5,8 +5,7 @@
 @File:loss.py
 @IDE:PyCharm
 """
-import numpy as np
-
+import nn
 # loss.py
 class BaseLoss(object):
     def loss(self, predicted, actual):
@@ -19,13 +18,13 @@ class BaseLoss(object):
 class CrossEntropyLoss(BaseLoss):
     def loss(self, predicted, actual):
         m = predicted.shape[0]
-        exps = np.exp(predicted - np.max(predicted, axis=1, keepdims=True))
-        p = exps / np.sum(exps, axis=1, keepdims=True)
-        nll = -np.log(np.sum(p * actual, axis=1))
-        return np.sum(nll) / m
+        exps = nn.exp(predicted - nn.max(predicted, axis=1, keepdims=True))
+        p = exps / nn.sum(exps, axis=1, keepdims=True)
+        nll = -nn.log(nn.sum(p * actual, axis=1))
+        return nn.sum(nll) / m
 
     def grad(self, predicted, actual):
         m = predicted.shape[0]
-        grad = np.copy(predicted)
+        grad = nn.copy(predicted)
         grad -= actual
         return grad / m

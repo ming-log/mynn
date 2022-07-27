@@ -5,7 +5,7 @@
 @File:optimizer.py
 @IDE:PyCharm
 """
-
+import nn
 
 # optimizer.py
 class BaseOptimizer(object):
@@ -16,8 +16,8 @@ class BaseOptimizer(object):
     def compute_step(self, grads, params):
         step = list()
         # flatten all gradients
-        flatten_grads = np.concatenate(
-            [np.ravel(v) for grad in grads for v in grad.values()])
+        flatten_grads = nn.concatenate(
+            [nn.ravel(v) for grad in grads for v in grad.values()])
         # compute step
         flatten_step = self._compute_step(flatten_grads)
         # reshape gradients
@@ -25,7 +25,7 @@ class BaseOptimizer(object):
         for param in params:
             layer = dict()
             for k, v in param.items():
-                block = np.prod(v.shape)
+                block = nn.prod(v.shape)
                 _step = flatten_step[p:p + block].reshape(v.shape)
                 _step -= self.weight_decay * v
                 layer[k] = _step

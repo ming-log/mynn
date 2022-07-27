@@ -5,8 +5,8 @@
 @File:layer.py
 @IDE:PyCharm
 """
-import numpy as np
 from initializer import XavierUniformInit, ZerosInit
+import nn
 
 class Layer:
     def __init__(self, name=None):
@@ -15,10 +15,6 @@ class Layer:
 
     def forward(self, inputs):
         raise NotImplementedError
-
-    def backward(self, grad):
-        raise NotImplementedError
-
 
 class Dense(Layer):
     def __init__(self,
@@ -37,11 +33,6 @@ class Dense(Layer):
     def forward(self, inputs):
         self.inputs = inputs
         return inputs @ self.params["w"] + self.params["b"]
-
-    def backward(self, grad):
-        self.grads["w"] = self.inputs.T @ grad
-        self.grads["b"] = np.sum(grad, axis=0)
-        return grad @ self.params["w"].T
 
 
 # layer.py
@@ -73,7 +64,7 @@ class ReLU(Activation):
         super().__init__("ReLU")
 
     def func(self, x):
-        return np.maximum(x, 0.0)
+        return nn.maximum(x, 0.0)
 
     def derivative_func(self, x):
         return x > 0.0
