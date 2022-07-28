@@ -65,9 +65,9 @@ class Tensor:
 
     def __repr__(self):
         if self.name:
-            return f"tensor(array({self.data}), requires_grad={self.requires_grad}, name={self.name})"
+            return f"name:{self.name}\ntensor:\n{self.data}\nrequires_grad:{self.requires_grad}\n" + '**' * 10
         else:
-            return f"tensor(array({self.data}), requires_grad={self.requires_grad})"
+            return f"tensor:\n{self.data}\nrequires_grad:{self.requires_grad}\n" + '**' * 10
 
 
     def __add__(self, other: Union['Tensor', float, int]) -> 'Tensor':
@@ -269,29 +269,22 @@ class Tensor:
         y = x @ other
         """
         def grad_fn1(grad):
-            # print('1111' + '-'*20)
-            # print(grad)
-            # print(np.ones_like(self.data.T) * np.expand_dims(other.data.sum(axis=-1), -1))
             return grad * np.ones_like(self.data.T) * np.expand_dims(other.data.sum(axis=-1), -1)
 
         def grad_fn2(grad):
-            # print('2222' + '-'*20)
-            # print(grad)
-            # print(np.ones_like(other.data) * np.expand_dims(self.T.data.sum(axis=-1), -1))
-            return grad * np.ones_like(other.data) * np.expand_dims(self.T.data.sum(axis=-1), -1)
+            return grad * np.ones_like(other.data) * np.expand_dims(self.data.T.sum(axis=-1), -1)
 
         other = ensure_Tensor(other)
 
         if self.requires_grad and other.requires_grad:
-            depends_on = [Dependency(self.T, grad_fn2), Dependency(other, grad_fn1)]
+            depends_on = [Dependency(self.T, grad_fn1), Dependency(other, grad_fn2)]
         elif not self.requires_grad and other.requires_grad:
             depends_on = [Dependency(other, grad_fn1)]
         elif self.requires_grad and not other.requires_grad:
             depends_on = [Dependency(self.T, grad_fn2)]
         else:
             depends_on = []
-        tensor = self.data @ other.data
-        return Tensor(tensor.T, other.requires_grad or self.requires_grad, depends_on=depends_on)
+        return Tensor(self.data @ other.data, other.requires_grad or self.requires_grad, depends_on=depends_on)
 
     def __rmatmul__(self, other: 'Tensor') -> 'Tensor':
         """
@@ -299,23 +292,22 @@ class Tensor:
         y = other @ x
         """
         def grad_fn1(grad):
-            return grad * np.ones_like(self.data) * np.expand_dims(other.T.data.sum(axis=1), -1)
+            return grad * np.ones_like(self.data) * np.expand_dims(other.data.T.sum(axis=-1), -1)
 
         def grad_fn2(grad):
-            return grad * np.ones_like(other.T.data) * np.expand_dims(self.data.sum(axis=0), -1)
+            return grad * np.ones_like(other.data.T) * np.expand_dims(self.data.sum(axis=-1), -1)
 
         other = ensure_Tensor(other)
 
         if self.requires_grad and other.requires_grad:
             depends_on = [Dependency(self, grad_fn2), Dependency(other.T, grad_fn1)]
         elif not self.requires_grad and other.requires_grad:
-            depends_on = [Dependency(other.T, grad_fn1)]
+            depends_on = [Dependency(other.T, grad_fn2)]
         elif self.requires_grad and not other.requires_grad:
-            depends_on = [Dependency(self, grad_fn2)]
+            depends_on = [Dependency(self, grad_fn1)]
         else:
             depends_on = []
-        tensor = self.data @ other.data
-        return Tensor(tensor.T, other.requires_grad or self.requires_grad, depends_on=depends_on)
+        return Tensor(self.data @ other.data, other.requires_grad or self.requires_grad, depends_on=depends_on)
 
     def __pow__(self, power: Union[int, float, 'Tensor'], modulo=None) -> 'Tensor':
         """
