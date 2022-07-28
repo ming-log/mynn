@@ -269,10 +269,10 @@ class Tensor:
         y = x @ other
         """
         def grad_fn1(grad):
-            return grad * np.ones_like(self.data.T) * np.expand_dims(other.data.sum(axis=-1), -1)
+            return grad * np.ones_like(self.data.T) * other.data.sum(axis=-1, keepdims=True)
 
         def grad_fn2(grad):
-            return grad * np.ones_like(other.data) * np.expand_dims(self.data.T.sum(axis=-1), -1)
+            return grad * np.ones_like(other.data) * self.data.T.sum(axis=-1, keepdims=True)
 
         other = ensure_Tensor(other)
 
@@ -292,10 +292,10 @@ class Tensor:
         y = other @ x
         """
         def grad_fn1(grad):
-            return grad * np.ones_like(self.data) * np.expand_dims(other.data.T.sum(axis=-1), -1)
+            return grad * np.ones_like(self.data) * other.data.T.sum(axis=-1, keepdims=True)
 
         def grad_fn2(grad):
-            return grad * np.ones_like(other.data.T) * np.expand_dims(self.data.sum(axis=-1), -1)
+            return grad * np.ones_like(other.data.T) * self.data.sum(axis=-1, keepdims=True)
 
         other = ensure_Tensor(other)
 

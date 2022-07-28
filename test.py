@@ -49,5 +49,9 @@ from tensor import Tensor, relu
 c = Tensor([[1, 2, 3], [4, 5, 6], [7, 8, 9]], requires_grad=True)
 d = Tensor(nn.eye(3), requires_grad=True)
 e = c@d
+e.backward()
+print(e)
+print(d.grad)
+print(c.grad)
 
 
