@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-@Time:2022/8/2 10:03
-@Author:Ming-Log
-@File:Python类型系统.py
-@IDE:PyCharm
-"""
 # 函数接受并返回一个字符串
 def greeting(name: str) -> str:
     return 'hello' + name
@@ -21,7 +14,8 @@ Vector = List[float]  # 元素类型为float的列表
 def scale(scale: float, vector: Vector) -> Vector:
     return [scale * num for num in vector]
 
-new_vector = scale(2.0, [2, 2, 2])
+new_vector1 = scale(1, (1, 2, 3))
+new_vector2 = scale(2.0, [2, 2, 2])
 
 # 类型别名可用于简化复杂类型签名。
 from typing import Dict, Tuple, Sequence
@@ -38,7 +32,7 @@ def broadcast_message(
     ...
 
 msg = '123'
-sev = Sequence[(('hello', 123), {'123': '123'})]
+sev = (('hello', 123), {'123': '123'})
 broadcast_message(msg, sev)
 
 # NewType
@@ -64,8 +58,33 @@ output = UserId(23413) + UserId(54341)
 from typing import NewType
 
 UserId = NewType('UserId', int)
+# 静态检查器将UserId作为int类的子类，但是实际上并不是子类，而会生成一个返回输入值的函数，输入什么返回什么
+# 故无法用于创建子类
 
 # 运行失败，但是类型检查无问题
+# 注意静态类型检查器与Python解释器的区别
 class AdminUserId(UserId): ...
 
+# Callable
+# 定义回调函数   类型标注为 Callable[[Arg1Type, Arg2Type], ReturnType]
+# 表示回调函数输入参数为两个，类型分别为（Arg1Type和Arg2Type），返回值类型为ReturnType
+from typing import Callable
 
+# 该函数输入的回调函数参数形式为：
+# 无输入值
+# 输出值为str类型
+def feeder(get_next_item: Callable[[], str]) -> None:
+    ...
+    # Body
+
+# 该函数输入的回调函数参数形式为：
+# on_success:
+# 输入值为int类型
+# 无输出值
+# on_error:
+# 输入值类型为：（int, Exception）
+# 无输出值
+def async_query(on_success: Callable[[int], None],
+                on_error: Callable[[int, Exception], None]) -> None:
+    ...
+    # Body

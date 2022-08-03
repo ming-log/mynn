@@ -14,11 +14,30 @@ from typing import List, NamedTuple, Optional, Union, Callable
 import numpy as np
 import nn
 
-Arrayable = Union[float, List, np.ndarray]
+# 定义Tensor初始化时，data允许传入的数据类型
+Arrayable = Union[float,
+                  List,
+                  np.ndarray]
 
+# 定义Tensor初始化时，dtype允许的数据类型
+Dtypeable = Union[int,
+                  float,
+                  np.uint,
+                  np.uint0,
+                  np.uint8,
+                  np.uint16,
+                  np.uint32,
+                  np.uint64,
+                  np.int0,
+                  np.int8,
+                  np.int16,
+                  np.int32,
+                  np.int64,
+                  np.float16,
+                  np.float32,
+                  np.float64]
 
-
-# 允许的类型
+# 定义depends_on允许的类型
 class Dependency(NamedTuple):
     tensor: 'Tensor'
     grad_fn: Callable[[np.ndarray], np.ndarray]  # 定义输入输出
@@ -31,8 +50,8 @@ class Tensor:
                  data:Arrayable,
                  requires_grad:bool=False,
                  depends_on: List[Dependency]=[],
-                 name=None,
-                 dtype=nn.float32
+                 name: str=None,
+                 dtype: Dtypeable=nn.float32
                  ):
 
         self.data = ensure_ndarray(data, dtype)
@@ -444,7 +463,7 @@ if __name__ == '__main__':
 
     a = Tensor([1, 2, 3])
     b = Tensor([1, 2, 3])
-    c = Tensor([5, 3, 1], requires_grad=True)
+    c = Tensor([5, 3, 1], requires_grad=True, name='c')
 
     y = a * c
     y.backward()
