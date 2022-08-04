@@ -786,7 +786,7 @@ print(c.grad)
         return Tensor(self.data >= other.data)
 ```
 
-## 矩阵的转置
+## 矩阵的转置`T`
 
 类外的函数：
 
@@ -823,7 +823,7 @@ print(c.T)
 
 ![image-20220803181947227](手动实现深度学习框架——Tensor类、自动求导机制.assets/image-20220803181947227.png)
 
-## 求和函数
+## 求和函数`sum()`
 
 类外的函数
 
@@ -847,7 +847,7 @@ def tensor_sum(t: Tensor) -> Tensor:
         return tensor_sum(self)
 ```
 
-## 均值函数
+## 均值函数`mean()`
 
 类外的函数
 
@@ -871,7 +871,7 @@ def tensor_mean(t: Tensor) -> Tensor:
         return tensor_mean(self)
 ```
 
-## relu激活函数
+## `relu`激活函数
 
 类外的函数
 
@@ -893,5 +893,31 @@ def relu(t: Tensor) -> Tensor:
     # relu激活函数
     def relu(self) -> 'Tensor':
         return relu(self)
+```
+
+## `sigmoid`激活函数
+
+类外的函数
+
+```python
+# sigmoid函数
+def sigmoid(t: Tensor) -> Tensor:
+    def forward(x: np.ndarray) -> np.ndarray:
+        return 1 / (1 + np.exp(-x))
+    if t.requires_grad:
+        def grad_fn(grad: np.ndarray) -> np.ndarray:
+            return grad * forward(t.data) * (1 - forward(t.data))
+        depends_on = [Dependency(t, grad_fn)]
+    else:
+        depends_on = []
+    return Tensor(forward(t.data), t.requires_grad, depends_on=depends_on)
+```
+
+类方法
+
+```python
+    # sigmoid激活函数
+    def sigmoid(self) -> 'Tensor':
+        return sigmoid(self)
 ```
 

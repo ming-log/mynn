@@ -395,6 +395,10 @@ class Tensor:
     def relu(self) -> 'Tensor':
         return relu(self)
 
+    # sigmoid激活函数
+    def sigmoid(self) -> 'Tensor':
+        return sigmoid(self)
+
 
 # 求和函数
 def tensor_sum(t: Tensor) -> Tensor:
@@ -430,6 +434,19 @@ def relu(t: Tensor) -> Tensor:
     else:
         depends_on = []
     return Tensor(nn.maximum(t.data, 0.0), t.requires_grad, depends_on=depends_on)
+
+
+# sigmoid函数
+def sigmoid(t: Tensor) -> Tensor:
+    def forward(x: np.ndarray) -> np.ndarray:
+        return 1 / (1 + np.exp(-x))
+    if t.requires_grad:
+        def grad_fn(grad: np.ndarray) -> np.ndarray:
+            return grad * forward(t.data) * (1 - forward(t.data))
+        depends_on = [Dependency(t, grad_fn)]
+    else:
+        depends_on = []
+    return Tensor(forward(t.data), t.requires_grad, depends_on=depends_on)
 
 
 def T(t: Tensor) -> Tensor:
@@ -471,10 +488,10 @@ if __name__ == '__main__':
     # print(y.sum())
 
     a = Tensor([1, 2, 3])
-    b = Tensor([1, 2, 3])
+    b = Tensor([1, 2, 3], requires_grad=True)
     c = Tensor([5, 3, 1], requires_grad=True, name='c')
-
-    y = a * c
+    d = c.sigmoid()
+    y = a * c + 2 * d * b
     y.backward()
 
     print(c.grad)
