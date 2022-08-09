@@ -94,7 +94,7 @@ class Tensor:
         """
 
         def grad_fn(grad):
-            return grad
+            return grad.mean(axis=0).reshape(other.shape)
 
         other = ensure_Tensor(other)
 
@@ -285,19 +285,20 @@ class Tensor:
         """
 
         def grad_fn1(grad):
-            return grad * np.ones_like(self.data.T) * other.data.sum(axis=-1, keepdims=True)
+            # return grad * nn.ones_like(other.data) * self.data.sum(axis=0).reshape(other.shape)
+            return (grad * self.data).mean(axis=0).reshape(other.shape)
 
         def grad_fn2(grad):
-            return grad * np.ones_like(other.data) * self.data.T.sum(axis=-1, keepdims=True)
+            return (grad * other.data).mean(axis=0).reshape(self.shape)
 
         other = ensure_Tensor(other)
 
         if self.requires_grad and other.requires_grad:
-            depends_on = [Dependency(self.T, grad_fn1), Dependency(other, grad_fn2)]
+            depends_on = [Dependency(other, grad_fn1), Dependency(self, grad_fn2)]
         elif not self.requires_grad and other.requires_grad:
             depends_on = [Dependency(other, grad_fn1)]
         elif self.requires_grad and not other.requires_grad:
-            depends_on = [Dependency(self.T, grad_fn2)]
+            depends_on = [Dependency(self, grad_fn2)]
         else:
             depends_on = []
         return Tensor(self.data @ other.data, other.requires_grad or self.requires_grad, depends_on=depends_on)
@@ -309,17 +310,17 @@ class Tensor:
         """
 
         def grad_fn1(grad):
-            return grad * np.ones_like(self.data) * other.data.T.sum(axis=-1, keepdims=True)
+            return grad * nn.ones_like(self.data) * other.data.sum(axis=0).reshape(self.shape)
 
         def grad_fn2(grad):
-            return grad * np.ones_like(other.data.T) * self.data.sum(axis=-1, keepdims=True)
+            return grad * nn.ones_like(other.data) * self.data.sum(axis=0).reshape(other.shape)
 
         other = ensure_Tensor(other)
 
         if self.requires_grad and other.requires_grad:
-            depends_on = [Dependency(self, grad_fn2), Dependency(other.T, grad_fn1)]
+            depends_on = [Dependency(self, grad_fn1), Dependency(other, grad_fn2)]
         elif not self.requires_grad and other.requires_grad:
-            depends_on = [Dependency(other.T, grad_fn2)]
+            depends_on = [Dependency(other, grad_fn2)]
         elif self.requires_grad and not other.requires_grad:
             depends_on = [Dependency(self, grad_fn1)]
         else:
@@ -378,6 +379,12 @@ class Tensor:
         other = ensure_Tensor(other)
         return Tensor(self.data >= other.data)
 
+    def __len__(self):
+        return self.data.__len__()
+
+    def __getitem__(self, item):
+        return Tensor(self.data[item])
+
     # 矩阵转置
     @property
     def T(self) -> 'Tensor':
@@ -399,6 +406,8 @@ class Tensor:
     def sigmoid(self) -> 'Tensor':
         return sigmoid(self)
 
+    def reshape(self, shape) -> 'Tensor':
+        return reshape(self, shape)
 
 # 求和函数
 def tensor_sum(t: Tensor) -> Tensor:
@@ -453,12 +462,19 @@ def T(t: Tensor) -> Tensor:
     if t.requires_grad:
         def grad_fn(grad: np.ndarray) -> np.ndarray:
             return grad.T
-
         depends_on = [Dependency(t, grad_fn)]
     else:
         depends_on = []
     return Tensor(t.data.T, t.requires_grad, depends_on=depends_on)
 
+def reshape(t: Tensor, shape) -> Tensor:
+    if t.requires_grad:
+        def grad_fn(grad: np.ndarray) -> np.ndarray:
+            return grad.reshape(shape)
+        depends_on = [Dependency(t, grad_fn)]
+    else:
+        depends_on = []
+    return Tensor(t.data.reshape(shape), t.requires_grad, depends_on=depends_on)
 
 # 确保输入数据为ndarray，如果不是ndarray则需要将其进行转化
 def ensure_ndarray(arrayable: Arrayable, dtype) -> np.ndarray:
